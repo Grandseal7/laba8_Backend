@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "db:init": "node db/seed.js",
+   "db:init": "node db/seed.js",
+"db:init:test": "node --env-file=.env.test db/seed.js",
     "test": "vitest run",
-  "test:watch": "vitest",
-  "coverage": "vitest run --coverage"
-
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
