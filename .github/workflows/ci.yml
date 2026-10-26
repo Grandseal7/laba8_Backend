@@ -1,0 +1,61 @@
+
+name: API Tests
+
+on:
+  push:
+    branches:
+      - main
+      - feature/api-tests
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: API-main
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: "4242"
+          POSTGRES_DB: agromarket_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agromarket_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:4242@localhost:5432/agromarket_test
+      JWT_SECRET: test-secret-only-for-local-tests
+      ADMIN_EMAIL: admin@test.kz
+      ADMIN_PASSWORD: "4242"
+
+    steps:
+      - name: Получение исходного кода
+        uses: actions/checkout@v4
+
+      - name: Установка Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: API-main/package-lock.json
+
+      - name: Установка зависимостей
+        run: npm ci
+
+      - name: Запуск тестов
+        run: npm test
+
+      - name: Проверка покрытия
+        run: npm run coverage
