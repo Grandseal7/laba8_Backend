@@ -1,65 +1,88 @@
-
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { readFileSync } from 'node:fs';
 import { pool } from './pool.js';
 
-const databaseUrl = process.env.DATABASE_URL || '';
+const force = process.argv.includes('--force');
 
-let databaseName = '';
+async function seed() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL не задан.');
+  }
 
-try {
-  databaseName = new URL(databaseUrl).pathname.replace(/^\//, '');
-} catch {
-  console.error('ОШИБКА: DATABASE_URL не задан или имеет неверный формат.');
-  process.exit(1);
-}
+  let databaseUrl;
 
-if (databaseName !== 'agromarket_test') {
-  console.error(
-    'ОШИБКА: db:init разрешён только для базы agromarket_test!'
+  try {
+    databaseUrl = new URL(process.env.DATABASE_URL);
+  } catch {
+    throw new Error('DATABASE_URL имеет неверный формат.');
+  }
+
+  const localHosts = ['localhost', '127.0.0.1', '::1'];
+  const isLocal = localHosts.includes(databaseUrl.hostname);
+
+  // Удалённую базу разрешаем инициализировать только с --force.
+  if (!isLocal && !force) {
+    throw new Error(
+      'Удалённая БД. Для подтверждения первоначальной инициализации добавьте --force.'
+    );
+  }
+
+  // В production всегда требуется явное подтверждение.
+  if (process.env.NODE_ENV === 'production' && !force) {
+    throw new Error(
+      'В production запуск seed запрещён без флага --force.'
+    );
+  }
+
+  if (!process.env.ADMIN_PASSWORD || !process.env.ADMIN_EMAIL) {
+    throw new Error('Не заданы ADMIN_PASSWORD или ADMIN_EMAIL.');
+  }
+
+  const schema = readFileSync(
+    new URL('./schema.sql', import.meta.url),
+    'utf8'
   );
-  process.exit(1);
-}
 
-if (!process.env.ADMIN_PASSWORD || !process.env.ADMIN_EMAIL) {
-  console.error('ОШИБКА: не заданы ADMIN_PASSWORD или ADMIN_EMAIL.');
-  process.exit(1);
-}
+  const { products } = JSON.parse(
+    readFileSync(new URL('../data/db.json', import.meta.url), 'utf8')
+  );
 
-const schema = readFileSync('./db/schema.sql', 'utf-8');
-const { products } = JSON.parse(
-  readFileSync('./data/db.json', 'utf-8')
-);
-
-try {
   await pool.query(schema);
 
-  for (const p of products) {
+  for (const product of products) {
     await pool.query(
       `INSERT INTO products (name, category, price, unit, image)
        VALUES ($1, $2, $3, $4, $5)`,
       [
-        p.name,
-        p.category ?? null,
-        Math.round(Number(p.price)),
-        p.unit ?? 'кг',
-        p.image ?? null
+        product.name,
+        product.category ?? null,
+        Math.round(Number(product.price)),
+        product.unit ?? 'кг',
+        product.image ?? null,
       ]
     );
   }
 
+  const email = process.env.ADMIN_EMAIL.toLowerCase().trim();
   const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
 
   await pool.query(
     `INSERT INTO users (name, email, password_hash, role)
      VALUES ($1, $2, $3, 'admin')`,
-    ['Администратор', process.env.ADMIN_EMAIL, hash]
+    ['Администратор', email, hash]
   );
 
   console.log(
-    `Готово: товаров — ${products.length}, админ — ${process.env.ADMIN_EMAIL}`
+    `База инициализирована: товаров — ${products.length}, администратор — ${email}`
   );
+}
+
+try {
+  await seed();
+} catch (error) {
+  console.error('Ошибка инициализации:', error.message);
+  process.exitCode = 1;
 } finally {
   await pool.end();
 }

@@ -1,3 +1,4 @@
+
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import dotenv from 'dotenv';
@@ -30,8 +31,14 @@ export default function globalSetup() {
     );
   }
 
-  // Инициализируем тестовую БД из текущего окружения.
+  // Инициализируем тестовую БД.
   execSync('node db/seed.js', {
+    stdio: 'inherit',
+    env: process.env,
+  });
+
+  // Проверяем, что миграция не ломает существующую базу.
+  execSync('node db/migrate.js', {
     stdio: 'inherit',
     env: process.env,
   });

@@ -6,15 +6,21 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-   "db:init": "node db/seed.js",
-"db:init:test": "node --env-file=.env.test db/seed.js",
+    "db:init": "node db/seed.js",
+    "db:init:test": "node --env-file=.env.test db/seed.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "db:migrate": "node db/migrate.js",
+    "db:init:force": "node db/seed.js --force",
+    "smoke": "node scripts/smoke.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=22"
+  },
   "type": "module",
   "dependencies": {
     "bcryptjs": "^3.0.3",
